@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'screens/busca_screen.dart';
+
 void main() => runApp(const MyApp());
 
 class MyApp extends StatelessWidget {
@@ -14,9 +16,7 @@ class MyApp extends StatelessWidget {
         colorSchemeSeed: const Color(0xFFF8BBD0), // rosa pastel
         useMaterial3: true,
       ),
-      home: const Scaffold(
-        body: Center(child: Text('Previsão do Tempo')),
-      ),
+      home: const BuscaScreen(),
     );
   }
 }

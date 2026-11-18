@@ -1,0 +1,148 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
+
+// ===================== MODEL =====================
+class Album {
+  final int userId;
+  final int id;
+  final String title;
+
+  const Album({required this.userId, required this.id, required this.title});
+
+  factory Album.fromJson(Map<String, dynamic> json) {
+    return Album(
+      userId: json['userId'] as int,
+      id: json['id'] as int,
+      title: json['title'] as String,
+    );
+  }
+}
+
+// ===================== SERVICE =====================
+Future<List<Album>> fetchAlbums() async {
+  final url = Uri.parse('https://jsonplaceholder.typicode.com/albums');
+  final response = await http.get(url).timeout(const Duration(seconds: 10));
+
+  if (response.statusCode != 200) {
+    throw Exception('Erro ${response.statusCode} ao buscar os álbuns');
+  }
+
+  final lista = jsonDecode(utf8.decode(response.bodyBytes)) as List<dynamic>;
+  return lista
+      .map((item) => Album.fromJson(item as Map<String, dynamic>))
+      .toList();
+}
+
+// ===================== APP =====================
+void main() => runApp(const MyApp());
+
+class MyApp extends StatelessWidget {
+  const MyApp({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return MaterialApp(
+      title: 'Álbuns',
+      debugShowCheckedModeBanner: false,
+      theme: ThemeData(colorSchemeSeed: Colors.green, useMaterial3: true),
+      home: const AlbunsScreen(),
+    );
+  }
+}
+
+// ===================== SCREEN =====================
+class AlbunsScreen extends StatefulWidget {
+  const AlbunsScreen({super.key});
+
+  @override
+  State<AlbunsScreen> createState() => _AlbunsScreenState();
+}
+
+class _AlbunsScreenState extends State<AlbunsScreen> {
+  late Future<List<Album>> _futureAlbums;
+
+  @override
+  void initState() {
+    super.initState();
+    _futureAlbums = fetchAlbums(); // chamado uma única vez
+  }
+
+  void _recarregar() {
+    setState(() {
+      _futureAlbums = fetchAlbums();
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Álbuns'),
+        actions: [
+          IconButton(
+            onPressed: _recarregar,
+            icon: const Icon(Icons.refresh),
+            tooltip: 'Recarregar',
+          ),
+        ],
+      ),
+      body: FutureBuilder<List<Album>>(
+        future: _futureAlbums,
+        builder: (context, snapshot) {
+          // 1) Carregando
+          if (snapshot.connectionState == ConnectionState.waiting) {
+            return const Center(child: CircularProgressIndicator());
+          }
+
+          // 2) Erro
+          if (snapshot.hasError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.cloud_off, size: 64, color: Colors.red),
+                    const SizedBox(height: 16),
+                    Text(
+                      'Erro: ${snapshot.error}',
+                      textAlign: TextAlign.center,
+                    ),
+                    const SizedBox(height: 16),
+                    FilledButton.icon(
+                      onPressed: _recarregar,
+                      icon: const Icon(Icons.refresh),
+                      label: const Text('Tentar novamente'),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }
+
+          // 3) Dados
+          final albums = snapshot.data ?? [];
+          if (albums.isEmpty) {
+            return const Center(child: Text('Nenhum álbum encontrado.'));
+          }
+
+          return ListView.separated(
+            itemCount: albums.length,
+            separatorBuilder: (context, index) => const Divider(height: 1),
+            itemBuilder: (context, index) {
+              final album = albums[index];
+              return ListTile(
+                leading: CircleAvatar(child: Text('${album.id}')),
+                title: Text(album.title),
+                subtitle: Text('Usuário ${album.userId}'),
+              );
+            },
+          );
+        },
+      ),
+    );
+  }
+}
